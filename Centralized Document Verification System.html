@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Centralized Document Verification System</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+:root{--slate:#0f172a;--purple:#7c3aed;--teal:#06b6d4;--bg:#f8fafc;--card:#fff;--muted:#64748b;--line:#e2e8f0;color-scheme:light;
+ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--slate);margin:0}
+.bg-glow{position:fixed;inset:0;z-index:-1;background:radial-gradient(600px 300px at 15% 0%,rgba(124,58,237,.14),transparent),radial-gradient(600px 300px at 90% 10%,rgba(6,182,212,.16),transparent),var(--bg)}
+.grad{background:linear-gradient(135deg,var(--purple),var(--teal))}
+.grad-text{background:linear-gradient(135deg,var(--purple),var(--teal));-webkit-background-clip:text;background-clip:text;color:transparent}
+.card{background:var(--card);border:1px solid var(--line);border-radius:1rem;box-shadow:0 10px 25px -10px rgba(15,23,42,.15);transition:all .3s}
+.card.hov:hover{transform:translateY(-6px);box-shadow:0 20px 40px -12px rgba(124,58,237,.35)}
+.btn{transition:all .3s;font-weight:600;border-radius:.75rem;padding:.75rem 1.4rem;cursor:pointer;border:0;color:#fff}
+.btn:hover{transform:scale(1.05)}.btn:active{transform:scale(.97)}
+.btn-p{background:var(--purple);box-shadow:0 8px 24px -6px rgba(124,58,237,.7)}
+.btn-t{background:var(--teal);box-shadow:0 8px 24px -6px rgba(6,182,212,.7)}
+.btn-o{background:#fff;color:var(--slate);border:1px solid var(--line)}
+.view{display:none}.view.active{display:block;animation:fade .45s ease both}
+@keyframes fade{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.fu{animation:fade .7s ease both}
+.tab{padding:.45rem 1rem;border-radius:.6rem;font-weight:600;font-size:.9rem;color:var(--muted);transition:all .3s;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--slate)}.tab.on{background:var(--slate);color:#fff}
+input{width:100%;border:1px solid var(--line);border-radius:.65rem;padding:.65rem .85rem;font:inherit;transition:all .3s;background:#fff;color:var(--slate)}
+input:focus{outline:0;border-color:var(--purple);box-shadow:0 0 0 4px rgba(124,58,237,.15)}
+label{font-size:.78rem;font-weight:600;color:var(--muted);display:block;margin-bottom:.25rem}
+.sw{width:46px;height:26px;border-radius:99px;background:#cbd5e1;position:relative;cursor:pointer;transition:.3s;border:0;flex:none}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw.on{background:var(--teal)}.sw.on::after{left:23px}
+.badge{padding:.2rem .7rem;border-radius:99px;font-size:.75rem;font-weight:700}
+.ok{background:#dcfce7;color:#15803d}.bad{background:#fee2e2;color:#b91c1c}
+.drop{border:2px dashed #c4b5fd;border-radius:1rem;transition:all .3s;cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--teal);background:rgba(6,182,212,.06)}
+.spin{width:44px;height:44px;border-radius:50%;border:4px solid #e2e8f0;border-top-color:var(--purple);border-right-color:var(--teal);animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.glow-ok{box-shadow:0 0 0 1px #86efac,0 0 40px rgba(34,197,94,.35)}
+.glow-bad{box-shadow:0 0 0 1px #fca5a5,0 0 40px rgba(239,68,68,.35)}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+.flow{animation:fl 3s ease-in-out infinite}.flow:nth-child(3){animation-delay:.5s}.flow:nth-child(5){animation-delay:1s}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.tbl-wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+
+<nav class="sticky top-0 z-30 backdrop-blur bg-white/80 border-b" style="border-color:var(--line)">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+    <div class="flex items-center gap-2 cursor-pointer" onclick="go('home')">
+      <div class="grad w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold shadow-lg">✓</div>
+      <div class="font-extrabold leading-tight text-sm sm:text-base">Document<span class="grad-text"> Verification</span></div>
+    </div>
+    <div class="flex gap-1 overflow-x-auto" id="tabs">
+      <span class="tab on" data-v="home" onclick="go('home')">Home</span>
+      <span class="tab" data-v="admin" onclick="go('admin')">🏛 Admin</span>
+      <span class="tab" data-v="verify" onclick="go('verify')">🔍 Verifier</span>
+      <span class="tab" data-v="arch" onclick="go('arch')">Architecture</span>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-6xl mx-auto px-4 py-8">
+
+<!-- HOME -->
+<section id="home" class="view active">
+  <div class="text-center py-10 max-w-3xl mx-auto">
+    <span class="badge fu" style="background:#ede9fe;color:var(--purple)">Centralized · Gas-Free · Secure</span>
+    <h1 class="text-4xl sm:text-6xl font-extrabold mt-5 leading-tight fu">Instant, <span class="grad-text">Tamper-Proof</span> Academic Credential Verification</h1>
+    <p class="mt-5 text-lg fu" style="color:var(--muted);animation-delay:.15s">A centralized architecture with no blockchain fees: universities issue certificates once, every file is SHA-256 fingerprinted, and employers verify against an indexed database in under a second.</p>
+    <div class="mt-8 flex gap-3 justify-center flex-wrap fu" style="animation-delay:.3s">
+      <button class="btn btn-p" onclick="go('admin')">Admin Portal</button>
+      <button class="btn btn-t" onclick="go('verify')">Verify Document</button>
+    </div>
+  </div>
+  <div class="grid md:grid-cols-3 gap-5 mt-6">
+    <div class="card hov p-6 fu"><div class="text-3xl">⚡</div><h3 class="font-bold text-lg mt-3">Sub-Second Verification (&lt;1s)</h3><p class="text-sm mt-2" style="color:var(--muted)">Optimized PostgreSQL lookups on a unique SHA-256 index return results almost instantly.</p></div>
+    <div class="card hov p-6 fu" style="animation-delay:.12s"><div class="text-3xl">🔐</div><h3 class="font-bold text-lg mt-3">Cryptographic Hashing</h3><p class="text-sm mt-2" style="color:var(--muted)">A single changed byte produces a completely different hash, so file integrity is unbreakable.</p></div>
+    <div class="card hov p-6 fu" style="animation-delay:.24s"><div class="text-3xl">🚫</div><h3 class="font-bold text-lg mt-3">Real-Time Revocation</h3><p class="text-sm mt-2" style="color:var(--muted)">Universities can flag compromised degrees instantly, and every verifier sees it immediately.</p></div>
+  </div>
+  <div class="card p-6 mt-8 text-center">
+    <div class="text-xs font-bold tracking-widest mb-4" style="color:var(--muted)">HOW IT WORKS</div>
+    <div class="flex items-center justify-center gap-3 flex-wrap">
+      <div class="flow grad text-white rounded-xl px-5 py-3 font-semibold shadow-lg">1 · Admin Issuance</div><span class="text-xl">→</span>
+      <div class="flow grad text-white rounded-xl px-5 py-3 font-semibold shadow-lg">2 · SHA-256 Hashing</div><span class="text-xl">→</span>
+      <div class="flow grad text-white rounded-xl px-5 py-3 font-semibold shadow-lg">3 · Instant Public Scan</div>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section id="admin" class="view">
+  <div class="card p-4 flex items-center justify-between flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+      <div class="grad w-12 h-12 rounded-xl flex items-center justify-center text-white text-xl shadow-lg">🏛</div>
+      <div><div class="font-bold">Northbridge University</div><div class="text-xs" style="color:var(--muted)">Office of the Registrar · admin@northbridge.edu</div></div>
+    </div>
+    <div class="flex items-center gap-3">
+      <span class="badge ok" id="authBadge">● Signed in</span>
+      <button class="btn btn-o !py-2" onclick="toggleAuth()" id="authBtn">Sign out</button>
+    </div>
+  </div>
+
+  <div id="adminBody">
+  <div class="grid lg:grid-cols-2 gap-5 mt-5">
+    <div class="card p-6">
+      <h2 class="font-bold text-lg">Issue Certificate</h2>
+      <div class="grid sm:grid-cols-2 gap-4 mt-4">
+        <div class="sm:col-span-2"><label>Student Full Name</label><input id="fName" placeholder="Ananya Sharma"></div>
+        <div class="sm:col-span-2"><label>Degree Program</label><input id="fProg" placeholder="B.Tech, Computer Science"></div>
+        <div><label>Graduation Year</label><input id="fYear" type="number" placeholder="2026"></div>
+        <div><label>Student ID</label><input id="fSid" placeholder="NU-2022-0457"></div>
+      </div>
+      <p id="formErr" class="text-sm mt-3 text-red-600 hidden">Please fill in all fields.</p>
+      <div class="flex gap-3 mt-5 flex-wrap">
+        <button class="btn btn-p" id="genBtn" onclick="generate()">Generate Certificate &amp; QR</button>
+        <button class="btn btn-o" onclick="fillDemo()">Fill demo data</button>
+      </div>
+    </div>
+    <div class="card p-6">
+      <h2 class="font-bold text-lg">Live Preview</h2>
+      <div id="preview" class="mt-4 rounded-xl p-5 text-center" style="border:2px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,var(--purple),var(--teal)) border-box;min-height:290px">
+        <div id="prevEmpty" class="py-16" style="color:var(--muted)">Your certificate preview appears here.</div>
+        <div id="prevBody" class="hidden">
+          <div class="text-xs tracking-widest font-bold" style="color:var(--purple)">NORTHBRIDGE UNIVERSITY</div>
+          <div class="text-xl font-extrabold mt-1">Certificate of Graduation</div>
+          <div class="text-sm mt-3" style="color:var(--muted)">This certifies that</div>
+          <div class="text-2xl font-extrabold grad-text" id="pvName"></div>
+          <div class="text-sm mt-1" id="pvProg"></div>
+          <div class="flex items-center justify-center gap-4 mt-4 flex-wrap">
+            <img id="pvQr" class="w-28 h-28 rounded-lg shadow-lg" alt="QR code">
+            <div class="text-left text-xs max-w-[200px]"><div class="font-bold" id="pvId"></div><div class="font-bold mt-2" style="color:var(--muted)">SHA-256</div><div class="mono" id="pvHash"></div></div>
+          </div>
+          <a id="dl" class="btn btn-t inline-block mt-4 !py-2 text-sm no-underline" download>⬇ Download PDF</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-6 mt-5">
+    <h2 class="font-bold text-lg">Revocation Management</h2>
+    <div class="tbl-wrap mt-4">
+      <table class="w-full text-sm">
+        <thead><tr class="text-left" style="color:var(--muted)"><th class="py-2 pr-3">Certificate ID</th><th class="pr-3">Student Name</th><th class="pr-3">Issue Date</th><th class="pr-3">Status</th><th>Active</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+  <div id="locked" class="card p-10 text-center mt-5 hidden"><div class="text-3xl">🔒</div><p class="mt-2" style="color:var(--muted)">Signed out. Sign in to issue or revoke certificates.</p></div>
+</section>
+
+<!-- VERIFY -->
+<section id="verify" class="view">
+  <div class="text-center mb-6"><h2 class="text-3xl font-extrabold">Public <span class="grad-text">Verifier</span> Portal</h2><p style="color:var(--muted)" class="mt-1">Upload a certificate PDF or scan its QR code.</p></div>
+  <div class="grid lg:grid-cols-2 gap-5">
+    <div class="card p-6">
+      <label class="!text-sm">Upload certificate</label>
+      <div class="drop mt-2 p-8 text-center" id="drop" onclick="fileIn.click()">
+        <div class="text-4xl">📄</div><div class="font-semibold mt-2">Drag &amp; drop PDF here</div><div class="text-xs" style="color:var(--muted)">or click to browse</div>
+        <input type="file" id="fileIn" accept="application/pdf" class="hidden">
+      </div>
+      <div class="flex items-center gap-3 my-5 text-xs" style="color:var(--muted)"><hr class="flex-1"><span>OR</span><hr class="flex-1"></div>
+      <button class="btn btn-t w-full" onclick="simScan(false)">📱 Simulate QR Scan</button>
+      <button class="text-xs mt-3 underline w-full" style="color:var(--muted)" onclick="simScan(true)">Simulate scan of a forged QR</button>
+    </div>
+    <div class="card p-6 flex items-center justify-center" style="min-height:320px" id="result">
+      <div class="text-center" style="color:var(--muted)">Results appear here.<br>Issue a certificate in the Admin tab, download it, then upload it here.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ARCH -->
+<section id="arch" class="view">
+  <div class="text-center mb-6"><h2 class="text-3xl font-extrabold">Technical <span class="grad-text">Architecture</span></h2><p style="color:var(--muted)" class="mt-1">Tap a tier to explore.</p></div>
+  <div class="grid md:grid-cols-3 gap-5" id="tiers"></div>
+  <div class="card p-6 mt-5" id="tierDetail"></div>
+</section>
+</main>
+
+<footer class="text-center text-xs py-8" style="color:var(--muted)">Centralized Document Verification System · Demo runs fully in your browser</footer>
+
+<script>
+const $=id=>document.getElementById(id);
+const sha=async buf=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',buf))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const enc=s=>new TextEncoder().encode(s);
+let DB=[],authed=true,scanIdx=0;
+
+/* ---------- navigation ---------- */
+function go(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.toggle('active',e.id===v));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.dataset.v===v));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- database (in-memory, simulating PostgreSQL) ---------- */
+async function seed(){
+  const s=[['Rohan Mehta','M.Sc, Data Science',2024,'NU-2020-0112','2025-06-14'],['Priya Nair','B.Com, Logistics',2023,'NU-2019-0873','2025-07-02'],['Arjun Rao','MBA, Supply Chain',2025,'NU-2023-0321','2025-08-21']];
+  for(let i=0;i<s.length;i++){const [name,program,year,sid,date]=s[i];
+    DB.push({id:'CERT-'+(1001+i),name,program,year,sid,date,hash:await sha(enc(name+sid+'seed')),status:i===1?'Revoked':'Active',seeded:true});}
+  renderRows();
+}
+function renderRows(){
+  $('rows').innerHTML=DB.map((c,i)=>`<tr class="border-t" style="border-color:var(--line)"><td class="py-3 pr-3 font-semibold">${c.id}</td><td class="pr-3">${c.name}</td><td class="pr-3">${c.date}</td>
+  <td class="pr-3"><span class="badge ${c.status==='Active'?'ok':'bad'}">${c.status}</span></td>
+  <td><button class="sw ${c.status==='Active'?'on':''}" aria-label="Toggle status" onclick="toggleStatus(${i})"></button></td></tr>`).join('');
+}
+function toggleStatus(i){DB[i].status=DB[i].status==='Active'?'Revoked':'Active';renderRows();}
+function toggleAuth(){authed=!authed;$('adminBody').classList.toggle('hidden',!authed);$('locked').classList.toggle('hidden',authed);
+  $('authBadge').className='badge '+(authed?'ok':'bad');$('authBadge').textContent=authed?'● Signed in':'● Signed out';$('authBtn').textContent=authed?'Sign out':'Sign in';}
+
+/* ---------- issuance ---------- */
+function fillDemo(){fName.value='Ananya Sharma';fProg.value='B.Tech, Computer Science';fYear.value=2026;fSid.value='NU-2022-0457';}
+async function generate(){
+  const v=[fName,fProg,fYear,fSid].map(e=>e.value.trim());
+  $('formErr').classList.toggle('hidden',v.every(Boolean));
+  if(!v.every(Boolean))return;
+  const btn=$('genBtn');btn.textContent='Generating…';btn.disabled=true;
+  try{
+    const [name,program,year,sid]=v,id='CERT-'+(1001+DB.length),date=new Date().toISOString().slice(0,10);
+    const qr=await QRCode.toDataURL('CDVS:'+id,{width:300,margin:1,color:{dark:'#0f172a',light:'#ffffff'}});
+    const {PDFDocument,StandardFonts,rgb}=PDFLib;
+    const pdf=await PDFDocument.create(),pg=pdf.addPage([842,595]);
+    const bold=await pdf.embedFont(StandardFonts.HelveticaBold),reg=await pdf.embedFont(StandardFonts.Helvetica);
+    const mid=(t,y,s,f,c)=>pg.drawText(t,{x:(842-f.widthOfTextAtSize(t,s))/2,y,size:s,font:f,color:c});
+    pg.drawRectangle({x:20,y:20,width:802,height:555,borderColor:rgb(.486,.227,.929),borderWidth:3});
+    pg.drawRectangle({x:30,y:30,width:782,height:535,borderColor:rgb(.024,.714,.831),borderWidth:1});
+    mid('NORTHBRIDGE UNIVERSITY',500,16,bold,rgb(.486,.227,.929));
+    mid('Certificate of Graduation',450,34,bold,rgb(.06,.09,.16));
+    mid('This certifies that',400,14,reg,rgb(.4,.45,.55));
+    mid(name,355,32,bold,rgb(.486,.227,.929));
+    mid(program+'  ·  Class of '+year,315,16,reg,rgb(.06,.09,.16));
+    mid('Student ID: '+sid+'   |   Certificate ID: '+id+'   |   Issued: '+date,280,11,reg,rgb(.4,.45,.55));
+    const img=await pdf.embedPng(qr);pg.drawImage(img,{x:371,y:100,width:100,height:100});
+    mid('Scan to verify authenticity',80,10,reg,rgb(.4,.45,.55));
+    pdf.setTitle('Certificate '+id);pdf.setCreationDate(new Date(date));pdf.setModificationDate(new Date(date));
+    const bytes=await pdf.save(),hash=await sha(bytes);
+    DB.unshift({id,name,program,year,sid,date,hash,status:'Active'});renderRows();
+    pvName.textContent=name;pvProg.textContent=program+' · Class of '+year;pvQr.src=qr;pvId.textContent=id;pvHash.textContent=hash;
+    dl.href=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));dl.download=id+'.pdf';
+    prevEmpty.classList.add('hidden');prevBody.classList.remove('hidden');prevBody.style.animation='none';prevBody.offsetWidth;prevBody.style.animation='fade .6s ease both';
+  }catch(e){console.error(e);alert('Generation failed: '+e.message);}
+  btn.textContent='Generate Certificate & QR';btn.disabled=false;
+}
+
+/* ---------- verification ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function showLoading(){$('result').innerHTML=`<div class="text-center"><div class="spin mx-auto"></div><p class="mt-4 font-semibold">Recalculating SHA-256 Hash &amp; Querying Database…</p></div>`;}
+function showResult(c,reason){
+  const meta=(a,b)=>`<div><div class="text-xs" style="color:var(--muted)">${a}</div><div class="font-semibold">${b}</div></div>`;
+  $('result').innerHTML=c&&c.status==='Active'?
+  `<div class="w-full fu"><div class="glow-ok rounded-2xl p-5 text-center" style="background:#f0fdf4"><div class="text-4xl">✅</div><div class="text-xl font-extrabold text-green-700 mt-1">AUTHENTIC &amp; VERIFIED</div></div>
+   <div class="grid grid-cols-2 gap-3 mt-4 text-sm">${meta('Student',c.name)}${meta('Program',c.program)}${meta('Certificate ID',c.id)}${meta('Student ID',c.sid)}${meta('Issued',c.date)}${meta('Verified at',new Date().toLocaleString())}</div>
+   <div class="mt-3 text-xs"><span style="color:var(--muted)">Database hash match ✔</span><div class="mono mt-1">${c.hash}</div></div></div>`:
+  `<div class="w-full fu"><div class="glow-bad rounded-2xl p-6 text-center" style="background:#fef2f2"><div class="text-4xl">⛔</div><div class="text-xl font-extrabold text-red-700 mt-1">INVALID OR REVOKED</div><p class="text-sm mt-2 text-red-700">${reason}</p></div></div>`;
+}
+async function verifyHash(h,t0){
+  showLoading();await sleep(Math.max(0,700-(performance.now()-t0)));
+  const c=DB.find(x=>x.hash===h);
+  showResult(c,c?'This certificate was revoked by the issuing university.':'No matching hash in the database. The file may have been altered or forged.');
+}
+async function handleFile(f){
+  if(!f)return;const t0=performance.now();showLoading();
+  await verifyHash(await sha(await f.arrayBuffer()),t0);
+}
+async function simScan(forge){
+  const t0=performance.now();showLoading();
+  if(forge)return verifyHash(await sha(enc('forged-'+Math.random())),t0);
+  const c=DB[scanIdx++%DB.length];verifyHash(c.hash,t0);
+}
+fileIn.onchange=e=>handleFile(e.target.files[0]);
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',e=>handleFile(e.dataTransfer.files[0]));
+
+/* ---------- architecture ---------- */
+const TIERS=[
+ {i:'⚛️',n:'Frontend',t:'React & Tailwind CSS',d:'A responsive single-page UI with role-based views, smooth hover animations and mobile-first QR scanning.',pts:['Role-switching admin / verifier views','Client-side drag-and-drop upload','Accessible, animated components']},
+ {i:'🟢',n:'Backend Engine',t:'Node.js & Express',d:'REST API handling issuance, revocation and verification; generates PDFs, QR codes and SHA-256 digests.',pts:['POST /certificates → pdf-lib + qrcode + SHA-256','GET /verify/:hash → indexed lookup','PATCH /certificates/:id/revoke']},
+ {i:'🐘',n:'Database',t:'PostgreSQL',d:'Stores unique file checksums with active status flags, so lookups stay sub-second as records grow.',pts:['UNIQUE index on sha256_hash','status flag: active / revoked','Audit trail of issuance and revocation']}];
+let tier=0;
+function renderTiers(){
+  $('tiers').innerHTML=TIERS.map((x,i)=>`<div class="card hov p-6 cursor-pointer ${i===tier?'ring-2 ring-purple-500':''}" onclick="tier=${i};renderTiers()"><div class="text-3xl">${x.i}</div><div class="text-xs font-bold mt-3" style="color:var(--purple)">TIER ${i+1}</div><h3 class="font-bold text-lg">${x.n}</h3><p class="text-sm" style="color:var(--muted)">${x.t}</p></div>`).join('');
+  const x=TIERS[tier];
+  $('tierDetail').innerHTML=`<h3 class="font-bold text-lg"><span class="grad-text">${x.n}</span> · ${x.t}</h3><p class="mt-2 text-sm" style="color:var(--muted)">${x.d}</p><ul class="mt-3 text-sm space-y-1">${x.pts.map(p=>`<li>▹ ${p}</li>`).join('')}</ul>`;
+}
+renderTiers();seed();
+</script>
+</body>
+</html>
